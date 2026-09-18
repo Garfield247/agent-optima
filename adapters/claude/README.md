@@ -45,20 +45,20 @@
 - Delegate broad directory explorations, massive file greps, or verbose build/test runs to subagents.
 - The subagent must distill findings into <= 20 lines (Root Cause -> File:Lines Pointer -> Next Action) before returning to the main session. Never dump voluminous raw logs into the primary context.
 
-## 5. Surgical Slicing Protocol (Token Optimization)
-- **No Full-File Reads**: Never read files >100 lines entirely.
-- **Two-Stage Slicing**:
-  1. Use `grep` / `rg` to pinpoint target symbol line $L$.
-  2. Read precisely with `view(StartLine=L-15, EndLine=L+35)` (window <= 80 lines).
+## 5. Semantic Slicing & Token Optimization
+- **Semantic Units First**: Never blindly ingest large files. Pinpoint target symbols with grep first, then read full semantic blocks (functions, classes, transaction boundaries) rather than arbitrary line cuts. Small files (<150 lines) can be read completely.
 - **Self-Healing Pointers**: Use `[file#anchor](path) (est Lxx-Lyy)`. Check header anchor upon slice read; if shifted, grep anchor to realign.
 
-## 6. CLI Command Throttling Matrix
-Never execute raw noisy commands in terminal:
-- Git log: `git log` ❌ -> `git log -n 5 --oneline` ✅
-- Directory: `find .` / `tree` ❌ -> `tree -L 2 -I 'node_modules|vendor|.git'` ✅
-- Go test: `go test -v ./...` ❌ -> `go test -v -run TestTarget ./target/pkg` ✅
-- Python test: `pytest` ❌ -> `pytest -q tests/test_target.py` ✅
-- Node build/install: `npm install` ❌ -> `npm i --silent` ✅
+## 6. CLI Command Throttling & Output Redirection
+- **Coverage vs Noise**: Run targeted unit tests during rapid development (`go test -run TestTarget`); run full regression tests before final completion. Never sacrifice regression coverage!
+- **Redirect Noisy Test Output**: Redirect full test suite stdout to temporary files, reading only the exit code and failure summary:
+  ```bash
+  go test ./... > /tmp/test.log 2>&1 || (tail -n 30 /tmp/test.log && exit 1)
+  ```
+- Command throttling:
+  - Git log: `git log` ❌ -> `git log -n 5 --oneline` ✅
+  - Directory: `find .` / `tree` ❌ -> `tree -L 2 -I 'node_modules|vendor|.git'` ✅
+  - Package install: `npm install` ❌ -> `npm i --silent` ✅
 
 ## 7. Zero Artifact Echoing & Strict Response Template
 - When creating or modifying artifacts (markdown plans, research docs, ADRs), NEVER print the markdown content in chat.

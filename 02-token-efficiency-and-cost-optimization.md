@@ -38,37 +38,40 @@
 
 必须从大模型计费公式、注意力前缀缓存机制（Prompt Caching）与计算复杂度进行严格推导。
 
-### 2.1 长会话 Token 二次方累积数学模型 (Quadratic Cost Accumulation Formula)
+### 2.1 长会话 Token 二次方累积数学模型与综合计费公式
 
 设用户在一次任务中与 Agent 进行了 $N$ 轮交互：
 * 设系统初始 Prompt（System Prompt + Tools 契约）基础长度为 $I_0$；
 * 设在第 $j$ 轮交互中，用户的输入加上终端工具返回的输出增量为 $\Delta I_j$；
 * 设第 $j$ 轮 Agent 生成的回复 Token 数量为 $O_j$；
 
-在传统的全量历史传递架构中，第 $k$ 轮推理时，送入大模型的**输入上下文总量 $I_k$** 为：
+在传统的全量历史传递架构中，第 $k$ 轮推理时，送入大模型的**输入上下文总量 $I_k$ 随轮次呈线性增长**：
 
-$$I_k = I_0 + \sum_{j=1}^{k-1} \left( \Delta I_j + O_j \right)$$
+$$I_k = I_0 + \sum_{j=1}^{k-1} \left( \Delta I_j + O_j \right) = \mathcal{O}(k \cdot \bar{M})$$
 
-整场会话经过 $N$ 轮交互后，累计消耗的总计费输入 Token $\text{Tokens}_{\text{in-total}}$ 为每一轮输入量的离散级数和：
+整场会话经过 $N$ 轮交互后，用户支付的**累计总输入 Token** $\text{Tokens}_{\text{in-total}}$ 为每一轮输入量的离散级数和：
 
-$$\text{Tokens}_{\text{in-total}} = \sum_{k=1}^N I_k = N \cdot I_0 + \sum_{k=1}^N \sum_{j=1}^{k-1} \left( \Delta I_j + O_j \right)$$
-
-为简化推导，假设每轮新增的输入与输出增量均值为 $\bar{M} = \Delta I + O$。则总输入 Token 公式精确展开为：
-
-$$\text{Tokens}_{\text{in-total}} = N \cdot I_0 + \bar{M} \cdot \sum_{k=1}^N (k - 1) = N \cdot I_0 + \bar{M} \cdot \frac{N(N - 1)}{2} = \mathcal{O}\left( N^2 \cdot \bar{M} \right)$$
+$$\text{Tokens}_{\text{in-total}} = \sum_{k=1}^N I_k = N \cdot I_0 + \sum_{k=1}^N \sum_{j=1}^{k-1} \left( \Delta I_j + O_j \right) = N \cdot I_0 + \bar{M} \cdot \frac{N(N - 1)}{2} = \mathcal{O}\left( N^2 \cdot \bar{M} \right)$$
 
 ```mermaid
 graph LR
     subgraph CostGrowth ["Token 消耗与交互轮次复杂度关系"]
         direction TB
-        L["单次交互成本: O(N) 线性膨胀"] 
-        --> T["整场会话总账单: O(N^2) 二次方滚雪球暴增！"]
+        L["单次交互输入量: O(N) 线性膨胀"] 
+        --> T["整场会话累计输入量: O(N^2) 二次方级数累积！"]
     end
 ```
 
 * **数学推导结论**：
-  **多轮长会话的综合 Token 成本绝非线性增长，而是呈现不可逆的二次方（$\mathcal{O}(N^2)$）复利雪崩！** 
-  一个未经优化的 20 轮会话，其后半程产生的能耗占据整场会话的 75% 以上。
+  **多轮长会话的单轮输入呈线性增长，而整场会话的累计输入 Token 呈二次方（$\mathcal{O}(N^2)$）级数膨胀！**
+* **工业级真实总费用核算口径**：
+  在引入 Prompt Caching（缓存）与工具调用的真实生产环境中，实际费用应遵循综合度量公式：
+  
+  $$\text{Total Cost} = C_{\text{uncached}} \cdot T_{\text{uncached-in}} + C_{\text{cached}} \cdot T_{\text{cached-in}} + C_{\text{write}} \cdot T_{\text{cache-write}} + C_{\text{out}} \cdot T_{\text{out}} + \text{Cost}_{\text{tools}}$$
+
+* **“状态落盘”计费边界澄清**：
+  必须理性认识到：当模型调用工具向文件写入内容时，**写入工具的输入参数本身仍属于模型的输出 Token，按 Output 费率计费**；
+  落盘真正节省的是：**在后续多轮交互中，不必在上下文历史中反复携带这数千字正文进行二次方复利计费，以及免去在对话聊天框中二次吐出长篇 Markdown 的巨额浪费**。
 
 ---
 
@@ -130,45 +133,33 @@ flowchart TD
 
 ### 3.1 外科手术式切片调阅协议 (Surgical Slicing Protocol)
 
-* **核心铁律**：**严禁对超过 100 行的文件进行全量裸读！必须通过先定位、后切片两步法调阅，单次窗口强制收敛在 30~80 行！**
-* **标准两步检索 SOP**：
-  ```mermaid
-  sequenceDiagram
-      autonumber
-      participant Agent as 智能体 (Agent)
-      participant Tools as 工具集 (Grep / View)
-      participant File as 源码文件 (1000+ 行)
-
-      Note over Agent: 严禁直接 view_file(file.go) 裸读！
-      Agent->>Tools: 步骤 1: grep_search(Query="func ProcessPayment", Path="file.go")
-      Tools-->>Agent: 命中行号: LineNumber = 345
-      Note over Agent: 动态计算视窗: [345 - 20, 345 + 40] = [325, 385] (60行)
-      Agent->>Tools: 步骤 2: view_file(StartLine=325, EndLine=385)
-      Tools-->>Agent: 返回极其精准的 60 行核心代码
-      Note over Agent: 相比裸读 1000 行，本次调阅瞬间节省 94% Token！
-  ```
-* **动态视窗安全公式**：
-  设目标核心行号为 $L_{\text{target}}$，调阅安全视窗计算公式为：
-  
-  $$\text{Window} = \left[ \max\left(1, L_{\text{target}} - \Delta_{\text{pre}}\right), \; L_{\text{target}} + \Delta_{\text{post}} \right]$$
-  
-  其中 $\Delta_{\text{pre}} \in [10, 20]$，$\Delta_{\text{post}} \in [20, 50]$。总行数严格限制在 80 行以内。
+* **核心原则：语义单元优先，预算上限防御**：
+  - 🚨 **拒绝盲人摸象式机械截断**：避免机械死卡 30~80 行导致跨行函数、复杂事务边界或异常处理链条被截断，进而引发多次补读与误判；
+  - **标准两步检索 SOP**：
+    1. **搜索定位 (Search First)**：先通过 `grep_search` / `rg` 锁定目标符号行号；
+    2. **完整语义单元调阅 (Semantic Slicing)**：依据函数/类起止边界，按完整的语义块调阅（例如一个 120 行的支付处理函数，应一次性完整调阅其完整闭包）；
+    3. **预算上限控制**：对于小型文件（<150 行）或全局架构文件，直接全量阅读；对于超大型文件（数千行），设置单次 Token 预算上限（如 150 行或 4KB），严禁无目的盲目裸读全文件。
 
 ---
 
-### 3.2 终端命令强制限流与静默矩阵 (CLI Throttling Matrix)
+### 3.2 终端命令强制限流与日志重定向截流 (CLI Log Redirection & Throttling)
 
-在终端运行命令时，必须强制加上限流、静默或定向过滤参数。严禁让无节制的日志冲刷破坏上下文：
+* **核心铁律**：**严禁为了省 Token 阉割必要的测试覆盖率！限制的是日志进入上下文的体积，而不是执行测试的范围！**
+* **日志截流方案**：
+  - 在运行可能产生海量滚屏的命令（如全量回归测试 `go test ./...`）时，**采用重定向到临时文件 + 提取退出码与失败摘要**：
+    ```bash
+    go test -v ./... > /tmp/test.log 2>&1 || (tail -n 40 /tmp/test.log && exit 1)
+    ```
+* **高频命令限流矩阵对照表**：
 
-| 命令分类 | 危险高能耗裸跑命令 ❌ | Agent Optima 强制限流命令规范 ✅ | 预期 Token 节省 |
+| 命令分类 | 危险高能耗裸跑命令 ❌ | 稳健限流截流规范 ✅ | 治理目标 |
 | :--- | :--- | :--- | :--- |
-| **Git 日志** | `git log` / `git log -p` | `git log -n 5 --oneline` / `git diff --stat` | 📉 **92%** |
-| **目录勘测** | `find .` / `tree` | `tree -L 2 -I 'node_modules\|vendor\|.git'` | 📉 **95%** |
-| **Go 测试** | `go test -v ./...` | `go test -v -run TestTarget ./target/pkg` | 📉 **88%** |
-| **Python 测试**| `pytest` | `pytest -q tests/test_target.py` | 📉 **85%** |
-| **Node 测试**  | `npm test` | `npm test -- -t "target test"` | 📉 **80%** |
-| **包管理安装** | `npm install` / `pip install` | `npm i --silent` / `pip install -q` | 📉 **90%** |
-| **日志排查** | `cat error.log` | `grep -n -C 3 "ERROR" error.log \| tail -n 30` | 📉 **96%** |
+| **Git 日志** | `git log` / `git log -p` | `git log -n 5 --oneline` / `git diff --stat` | 限制输出行数，避免巨量提交历史滚屏 |
+| **目录勘测** | `find .` / `tree` | `tree -L 2 -I 'node_modules\|vendor\|.git'` | 限制层级深度，屏蔽海量依赖目录 |
+| **开发期微测** | 盲目全量跑单测 | `go test -run TestTarget` / `pytest -k test_name` | 开发调试期秒级快速反馈 |
+| **交付前回归** | ❌ 阉割为只测单函数 | `go test ./... > /tmp/run.log` + 提取失败行 | **必须保持 100% 回归覆盖率**，仅截流日志 |
+| **包管理安装** | `npm install` / `pip install` | `npm i --silent` / `pip install -q` | 屏蔽无意义的下载进度条字符 |
+| **日志排查** | `cat error.log` | `grep -n -C 3 "ERROR" error.log \| tail -n 30` | 精准定位错误堆栈，禁止全量 cat |
 
 ---
 

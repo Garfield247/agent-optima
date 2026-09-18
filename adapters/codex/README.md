@@ -4,12 +4,12 @@
 
 ---
 
-## 1. 物理配置文件位置
+## 1. 物理配置文件位置与官方发现机制
 
-- **全局用户级配置**：`~/.openai/AGENTS.md`
-- **项目级规则文件**：`${PROJECT_ROOT}/AGENTS.md` 或 `.openai/rules.md`
+- **全局用户级配置 (Global Defaults)**：`~/.codex/AGENTS.md`（Codex CLI 与系统级全局继承）
+- **项目级规则文件 (Project Root)**：`${PROJECT_ROOT}/AGENTS.md`（项目单一真理源）
 - **项目元指针索引地图**：`${PROJECT_ROOT}/.agents/PROJECT_MAP.md`
-- **任务状态机持久化文件**：`${PROJECT_ROOT}/.openai/task_state.json` 或 `implementation_plan.md`
+- **任务状态机持久化工件**：`${PROJECT_ROOT}/.codex/task_state.json` 或 `implementation_plan.md`
 
 ---
 
@@ -18,10 +18,11 @@
 将以下规范置入工程根目录的 `AGENTS.md` 中：
 
 ```markdown
-# OpenAI Agent Operational Contract & Resource Efficiency Invariants
+# OpenAI Codex Agent Operational Contract & Resource Efficiency Invariants
 
 ## 1. Verification Evidence Gate (Non-Negotiable)
-- Execution cannot transition to COMPLETED without zero-exit-code evidence from the native project compiler or test runner.
+- Execution cannot transition to COMPLETED without zero-exit-code evidence from native test runners or compilers.
+- **Coverage vs Noise**: Run targeted unit tests during rapid iteration; execute comprehensive regression checks prior to final completion. Never sacrifice test coverage just to suppress terminal logs.
 - Never output speculative success statements ("Everything has been successfully implemented"). You MUST inspect terminal output lines for verification proof.
 - If a compilation or test fails, do NOT blindly tweak the same broken code. Perform root cause analysis first.
 

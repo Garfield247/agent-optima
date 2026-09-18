@@ -4,13 +4,12 @@
 
 ---
 
-## 1. 物理配置文件位置
+## 1. 物理配置文件位置与发现机制
 
-Cursor 采用基于文件前缀和 Glob 模式的 `.cursor/rules/` 架构：
-- `.cursor/rules/00-architecture-invariants.mdc`: 最高特权级工程宪法与验证硬门禁（`alwaysApply: true`）
-- `.cursor/rules/01-token-optima.mdc`: Token 能效、切片调阅与命令限流规则（`alwaysApply: true`）
-- `.cursor/rules/02-cognitive-triage.mdc`: 意图分流与阅后即焚路由器（`alwaysApply: true`）
-- 项目元指针地图：`.agents/PROJECT_MAP.md`
+不同 IDE 的规则加载体系存在差异：
+- **Cursor (Composer / Agent)**：采用 `.cursor/rules/*.mdc` 目录体系（支持 YAML frontmatter 与 glob 匹配）；
+- **Windsurf (Cascade)**：采用项目根目录的 `.windsurfrules`（纯 Markdown 格式）；
+- **项目轻量元指针地图**：`.agents/PROJECT_MAP.md`。
 
 ---
 
@@ -28,8 +27,9 @@ alwaysApply: true
 # Cursor Core Architecture Invariants
 
 - **完成前铁证验证门禁 (Evidence Gate)**：
-  - 严禁盲目声称任务完成。在提交修改前，必须在终端执行真实编译或自动化测试（`go build`、`pytest -q`、`tsc --noEmit`）。
-  - 没有终端绿灯客观证据，严禁在回答中说“已经成功实现”。退出码非 0 视为未完成。
+  - 严禁盲目声称任务完成。在声称任务成功前，必须在终端执行真实测试或编译（`go test`、`pytest`、`tsc --noEmit`）。
+  - **覆盖率与噪声平衡**：开发迭代阶段跑定向测试以实现秒级反馈；在交付提交前，必须运行影响范围的完整回归测试。严禁为了省 Token 阉割全量回归测试！通过重定向或管道截流日志。
+  - 没有终端客观证据（测试真实执行且退出码为 0），严禁宣称完成。
 - **复杂任务强制落盘 (State Externalization)**：
   - 任务预计超过 2 个步骤时，必须先在本地写入任务清单（如 `.cursor/plan.md` 或专属工件路径）。
   - 每个任务项必须包含明确的自动化检验命令，验证通过后打勾。

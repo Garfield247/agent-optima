@@ -88,45 +88,34 @@ graph LR
 
 ---
 
-### 2.3 核心命题：根据 Agent 的核心特性，为什么治理方案绝不能做成 Skill？
+### 2.3 核心架构辨析：认知底线常驻、按需技能扩展与运行时物理强制分工
 
-为什么我们坚决禁止将“抗腐化防混乱与 Token 优化”写成 `agent-skill-anti-rot`？必须从 Agent 的认知执行回路（ReAct Cycle）进行严密论证：
+为什么抗腐化底线与治理规范不能完全依赖按需加载的 Skill？必须厘清大模型工程中的三个核心概念：**指令优先级（Instruction Priority）、注意力分配（Attention Allocation）与运行时程序强制执行（Runtime Hard Enforcement）**：
 
 ```mermaid
-sequenceDiagram
-    autonumber
-    actor User as 用户
-    participant LLM as Agent 认知核心 (LLM)
-    participant Tool as 工具执行引擎 (Tools)
-    participant Disk as 物理文件系统 (Disk)
+graph TD
+    subgraph ThreeTierGovernance [工业级智能体三层治理分工模型]
+        direction TB
+        L0["Layer 0: 运行时物理硬阻断 (Runtime Harness / CI / 编译器)<br/>★ 真正的物理 Ring 0：退出码拦截、管道日志截流、CI 自动化门禁"]
+        L1["Layer 1: 系统级常驻规则 (System Prompts / Global Rules)<br/>★ 认知底线：验收标准、状态落盘触发点、核心行为负面清单"]
+        L2["Layer 2: 按需领域技能 (Lazy-loaded Skills / Ad-hoc SOP)<br/>★ 领域武器库：MySQL 调优规范、特定框架排障手册、长篇交接 SOP"]
+    end
 
-    Note over LLM: 场景 A: 如果做成 Skill (按需加载)
-    User->>LLM: 提出复杂重构需求 (第15轮，上下文 100K Token)
-    Note over LLM: 💥 认知腐化: 处于注意力衰减与意图漂移状态
-    LLM-->>LLM: 意图识别失能！无法识别自己处于混乱中，绝不会调用 load_skill("anti-rot")
-    LLM->>Tool: 盲目胡乱改写核心代码，产生严重 Bug
-
-    Note over LLM: 场景 B: 设为 Rule / 架构体系 (元宪法常驻)
-    User->>LLM: 提出复杂重构需求 (第15轮，上下文 100K Token)
-    Note over LLM: 🛡️ Ring 0 强常驻指令强制截断盲目输出
-    LLM->>Disk: 动作 1: 强制检查 implementation_plan.md 落盘状态
-    LLM->>Tool: 动作 2: 执行真实编译器/单元测试检验
-    Tool-->>LLM: 返回退出码与客观证据
-    LLM->>User: 交付具备完整客观证据的代码与进度
+    L0 -->|物理拦截一切非法行为| Runtime[执行引擎与环境]
+    L1 -->|常驻前缀，提供最高注意力权重的认知底线| Model[大语言模型]
+    L2 -->|命中垂直业务场景时按需动态调阅| Model
 ```
 
-#### 论据 1：触发失能与死锁悖论 (The Deadlock Paradox)
-* **Skill 的工作协议**：被动式（Passive）、按需加载（On-Demand）。只有在 Agent 具备清晰意图的前提下，通过 LLM 语义识别命中关键字，才会去读取 `SKILL.md`；
-* **上下文腐化的物理本质**：Agent 的自注意力衰竭，元认知（Metacognition）全面瘫痪；
-* **死锁产生**：一个处于思维混乱、意图识别失常状态下的模型，根本不可能清醒地做出“*我脑子乱了，我要主动调取《防思维混乱 Skill》*”的决策。
+#### 1. 概念厘清：写在 Prompt 里的规则不是操作系统的“内核硬件中断”
+- 许多人误以为只要把规则写进 `GEMINI.md` 或 `AGENTS.md`，模型就会产生像操作系统的 Ring 0 内核级硬保障。**这是对 LLM 概率采样特性的幻觉！**
+- 写在任何 Prompt 里的文字，都只是模型的概率输入。**真正的物理 Ring 0 永远是外围的运行环境 Harness、编译器退出码检测、管道日志截流脚本和 CI 门禁！**
 
-#### 论据 2：上下文污染的“饮鸩止渴”反噬 (Bootstrap Ingestion Paradox)
-* 上下文优化的核心是**降低上下文负荷、剔除噪音**；
-* 如果将优化准则作为 Skill 动态读取，必须把几千 Token 的规范注入已经逼近极限的上下文窗口，直接加速触发系统的 Compaction 截断，造成次生灾害。
-
-#### 论据 3：特权级倒挂 (Privilege Level Inversion)
-* 在大模型的注意力机制中，**System Prompt / 全局 Rules 享有最高特权级（Ring 0）**，每次推理都置于序列顶端；
-* Skill 作为外部文档读取进来，属于**动态数据层（Ring 3）**，经过 3 轮交互后便滑落入注意力谷底。用低特权级的数据去约束高特权级的行为规范，在架构设计上是本末倒置。
+#### 2. 为什么底线治理必须进入常驻 Rules，而不能仅作为按需 Skill？
+- **触发失能与认知死锁**：按需 Skill 的入口依赖模型先清醒识别出“我需要这个技能”。当长会话发生注意力稀释和意图漂移时，模型已处于认知失能状态，很难自主触发元认知去唤醒《防思维混乱 Skill》；
+- **各司其职的科学架构分层**：
+  - **常驻 Rules (全局认知基石)**：保持极度简炼高密度，仅包含验收门禁、何时落盘状态、命令截流参数与负面清单；
+  - **按需 Skills (垂直领域工具包)**：承载长篇复杂的排错分析树、特定业务框架最佳实践；
+  - **运行时工具/CI (物理绝对防线)**：负责执行真实测试命令、截流海量日志、校验退出码。
 
 ---
 
@@ -238,18 +227,19 @@ flowchart TD
 ### 3.4 物理编译与客观测试硬门禁 (Verification Evidence Gate)
 
 * **核心铁律**：**没有客观事实证据，坚决禁止宣布任务完成！代码写完不是完成，编译通过、测试全绿、进程健康才叫完成。**
-* **多语言自动化校验命令红线矩阵**：
-
-| 语言 / 框架 | 静态语法与编译硬门禁 | 自动化单元测试硬门禁 | 静态类型分析 |
-| :--- | :--- | :--- | :--- |
-| **Go** | `go build ./...` | `go test -v -race -run TestTarget ./...` | `golangci-lint run --timeout=2m` |
-| **Python** | `python3 -m py_compile $(git diff --name-only *.py)` | `pytest -q tests/test_target.py` | `mypy --config-file pyproject.toml` |
-| **Rust** | `cargo check --all-targets` | `cargo test --test test_name -- --nocapture` | `cargo clippy -- -D warnings` |
-| **TypeScript** | `npx tsc --noEmit` | `npm test -- -t "target test"` | `npx eslint . --ext .ts` |
-| **PHP (Hyperf)** | `php -l path/to/file.php` | `composer test -- --filter=TargetTest` | `vendor/bin/phpstan analyse` |
-
-* **门禁阻断判定**：
-  凡是终端退出码（Exit Code）非 0，一律视为未完成，严禁向用户虚报战果。
+* **分阶段测试与验证覆盖率原则 (Coverage vs Noise)**：
+  - 🚨 **严禁因省 Token 牺牲测试覆盖率**：过去部分团队为减少日志输出，在整个生命周期都只跑单个测试甚至禁止全量测试，这是极其危险的架构倒退！局部用例通过无法证明跨模块没有引入破坏性回归。
+  - **开发阶段 (Fast Feedback Loop)**：运行定向目标用例（如 `go test -run TestTarget`、`pytest -k test_target`），获取秒级快速反馈；
+  - **交付阶段 (Full Regression Gate)**：在向用户汇报或提交代码前，**必须根据改动影响面运行完整的包级/全量回归测试**（如 `go test ./...`、`pytest`）；
+  - **如何化解海量日志冲击上下文？**
+    **限制的是日志进入上下文的体积，而不是执行测试的范围！**
+    - 推荐将测试输出重定向至临时文件，模型只读取退出码、运行总数与失败摘要：
+      ```bash
+      go test -v ./... > /tmp/test.log 2>&1 || (tail -n 30 /tmp/test.log && exit 1)
+      ```
+* **退出码与执行断言双重门禁**：
+  - 门禁 1：终端退出码（Exit Code）必须为 0；
+  - 门禁 2：**断言测试真实执行**：检查报告中运行测试用例数 > 0，严禁将“0 match（未匹配到任何用例）”或“全部 skipped”误判为成功！
 
 ---
 

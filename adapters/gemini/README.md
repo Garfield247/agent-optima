@@ -22,6 +22,8 @@
 
 ## 1. 完成前铁证验证门禁 (Verification Evidence Gate)
 - 🚨 **严禁盲目宣称任务完成**：代码生成完毕不代表完成。在声称任务完成前，必须提供真实的终端编译器 (go build / pytest / tsc) 通过日志与自动化测试全绿客观证据。退出码非 0 一律视为未完成。
+- **覆盖率与噪声平衡**：开发阶段运行目标测试获得快速反馈；交付验收前，**必须根据改动影响面运行完整的包级/全量回归测试**，严禁为了省 Token 阉割全量回归测试！通过重定向到临时文件或管道截流日志，模型仅读取退出码与失败摘要。
+- **断言真实执行**：确认测试用例真实执行且运行数 > 0，严禁将 0 match 或全部 skip 误判为成功。
 - 🚨 **严禁静默兜底与补偿 (No Silent Fallback)**：严禁未经授权擅自编写自动重试 (Retry)、默认值降级或静默吞 error 逻辑。
 
 ## 2. 复杂任务状态强制落盘协议 (State Externalization SOP)
@@ -50,12 +52,12 @@
 - **自愈调阅规范**：指针采用 `[文件#锚点](path#锚点) (预估行号)`；切片调阅后第一步校验首行锚点，未命中则立即以锚点关键字执行 `grep_search` 自愈纠偏，彻底终结纯行号偏移失效。
 
 ## 6. 外科手术式切片调阅与命令截流矩阵 (Surgical Slicing & CLI Throttling)
-- **切片调阅两步法 SOP**：面对超过 100 行的文件，严禁全量裸读！必须第 1 步 `grep_search` 定位核心符号行号 $L$，第 2 步 `view_file(StartLine=L-15, EndLine=L+35)` 将视窗严格收敛在 30~80 行；
-- **终端命令强制限流矩阵**：严禁裸跑高能耗命令！
+- **语义单元调阅优先**：严禁无目的盲目裸读大文件！优先 `grep_search` 定位核心符号行号，按**完整的语义单元（类、函数、事务闭包）**调阅，杜绝盲人摸象截断代码；小文件或整体架构审查允许全文阅读；大文件设定单次 Token 预算上限；
+- **终端命令强制限流与日志重定向矩阵**：
   - Git 历史：`git log` ❌ ➔ 强制 `git log -n 5 --oneline` ✅；
   - 目录勘测：`tree` ❌ ➔ 强制 `tree -L 2 -I 'node_modules|vendor|.git'` ✅；
-  - 单元测试：`go test -v ./...` ❌ ➔ 强制 `go test -v -run TestTarget ./target/pkg` ✅；
-  - Python 测试：`pytest` ❌ ➔ 强制 `pytest -q tests/test_target.py` ✅；
+  - 开发调试微测：`go test -run TestTarget` / `pytest -k test_target` ✅；
+  - 交付前全量回归：`go test ./... > /tmp/test.log 2>&1 || (tail -n 30 /tmp/test.log && exit 1)`（确保覆盖率同时截流日志）✅；
   - 构建安装：`npm i` ❌ ➔ 强制 `npm i --silent` ✅。
 
 ## 7. 零工件复述与输出硬模板 (Zero Echoing & Strict Response Template)
