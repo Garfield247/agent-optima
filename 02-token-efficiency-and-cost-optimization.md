@@ -59,10 +59,10 @@ $$\text{Tokens}_{\text{in-total}} = N \cdot I_0 + \bar{M} \cdot \sum_{k=1}^N (k 
 
 ```mermaid
 graph LR
-    subgraph CostGrowth [Token 消耗与交互轮次复杂度关系]
+    subgraph CostGrowth ["Token 消耗与交互轮次复杂度关系"]
         direction TB
         L["单次交互成本: O(N) 线性膨胀"] 
-        --> T["整场会话总账单: O(N²) 二次方滚雪球暴增！"]
+        --> T["整场会话总账单: O(N^2) 二次方滚雪球暴增！"]
     end
 ```
 
@@ -89,12 +89,12 @@ graph LR
 
 ```mermaid
 graph TD
-    subgraph PromptCacheAlignment [Prompt Caching 物理对齐机理]
+    subgraph PromptCacheAlignment ["Prompt Caching 物理对齐机理"]
         direction LR
-        P1["[固定前缀] System Prompt + Tools 签名 (命中缓存: 10% 成本)"] 
-        --> P2["[静态基线] PROJECT_MAP.md (命中缓存: 10% 成本)"] 
-        --> P3["[断裂点] 插入了毫秒级时间戳 / 动态随机数 ❌"] 
-        --> P4["[完全失效] 后续所有对话全部触发 Cache Miss (100% 全价)"]
+        P1["固定前缀: System Prompt + Tools 签名 (命中缓存: 10% 成本)"] 
+        --> P2["静态基线: PROJECT_MAP.md (命中缓存: 10% 成本)"] 
+        --> P3["断裂点: 插入了毫秒级时间戳 / 动态随机数 ❌"] 
+        --> P4["完全失效: 后续所有对话全部触发 Cache Miss (100% 全价)"]
     end
 ```
 
@@ -111,7 +111,7 @@ graph TD
 
 ```mermaid
 flowchart TD
-    subgraph TokenEngine [Agent Optima 极致能效中枢]
+    subgraph TokenEngine ["Agent Optima 极致能效中枢"]
         direction TB
         
         S1["策略 1: 外科手术式切片调阅<br/>(Surgical Slicing Protocol)"]
@@ -120,10 +120,10 @@ flowchart TD
         S4["策略 4: One Epic One Session 斩断复利<br/>(Session Lifecycle Governance)"]
     end
 
-    S1 -->|节约 80% 源码阅读能耗| Context["主上下文高信噪比"]
-    S2 -->|截流 90% 终端滚屏噪音| Context
-    S3 -->|节省 100% 昂贵 Output Token| Wallet["账单骤降 60%"]
-    S4 -->|斩断 O(N²) 成本爆炸曲线| Wallet
+    S1 -->|"节约 80% 源码阅读能耗"| Context["主上下文高信噪比"]
+    S2 -->|"截流 90% 终端滚屏噪音"| Context
+    S3 -->|"节省 100% 昂贵输出 Token"| Wallet["账单骤降 60%"]
+    S4 -->|"斩断二次方成本爆炸曲线"| Wallet
 ```
 
 ---
@@ -201,15 +201,14 @@ flowchart TD
   **永远不要把一个会话当成永不退役的日记本。会话的本质是短命的、专注的计算沙盒。**
 * **生命周期跃迁规则**：
   ```mermaid
-  stateDiagram-v2
-      [*] --> NewSession: 启动新会话 (基线: 3K Token)
-      NewSession --> Recon: 勘测摸骨与设计方案
-      Recon --> Coding: 原子化实现与测试验证
-      Coding --> Completed: 物理测试全绿 + Conventional Commit 提交
-      Completed --> PushRemote: 推送远端仓库并沉淀文档
-      PushRemote --> Archive: 归档会话
-      Archive --> [*]: 开启全新会话承接下一个 Epic
-  ```
+flowchart LR
+    S1["启动新会话 (基线: 3K Token)"] 
+    --> S2["勘测摸骨与设计方案"]
+    --> S3["原子化实现与测试验证"]
+    --> S4["物理测试全绿 + 提交"]
+    --> S5["推送远端并沉淀文档"]
+    --> S6["归档并开启新会话承接下一个 Epic"]
+```
 * **效益分析**：
   通过将大 Epic 拆解并“完成即提交、提交即开启新会话”，把原本在 150K 水位滑行的二次方成本曲线（$\mathcal{O}(N^2)$），重置为多个仅在 3K~25K 之间波动的平缓线性阶梯，**综合 API 费用直接下降 60% 以上**！
 
