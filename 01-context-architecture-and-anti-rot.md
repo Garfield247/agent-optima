@@ -132,7 +132,7 @@ sequenceDiagram
 
 ## 3. 架构防御与治理策略 (Architectural Defense & Strategies)
 
-基于上述底层机理，`Agent Optima` 建立五大工程级硬核防御支柱，形成不可动摇的确定性防御网：
+基于上述底层机理，`Agent Optima` 建立六大工程级硬核防御支柱，形成不可动摇的确定性防御网：
 
 ```mermaid
 flowchart TD
@@ -144,6 +144,7 @@ flowchart TD
         P3["支柱 3: 脏活累活子代理隔离<br/>(Subagent Context Hygiene)"]
         P4["支柱 4: 物理编译与断言门禁<br/>(Physical Verification Gate)"]
         P5["支柱 5: 单一数据源与锚点自愈<br/>(SSOT & Self-Healing Pointer)"]
+        P6["支柱 6: 信息价值分级与阅后即焚<br/>(Lifecycle Triage & Offloading)"]
     end
 
     P1 -->|状态脱离易失内存| Disk["磁盘持久化工件<br/>implementation_plan.md"]
@@ -151,6 +152,7 @@ flowchart TD
     P3 -->|耗费10万Token后焚毁| MainContext["主上下文永保极高信噪比"]
     P4 -->|拒绝盲目相信生成代码| Compiler["编译器/单测物理铁证"]
     P5 -->|杜绝纯行号错位失效| Docs["项目轻量元指针地图<br/>.agents/PROJECT_MAP.md"]
+    P6 -->|周报/调研/灵感分流抽离| Offload["会话外置即焚 + 磁盘工件沉淀"]
 ```
 
 ---
@@ -271,6 +273,55 @@ flowchart TD
   1. Agent 通过切片工具调阅时，指定 `StartLine: 45, EndLine: 120`；
   2. 读取后第一步必须校验首行是否包含指定锚点（如 `## 订单逆向退款状态流转状态机`）；
   3. 若行号因他人提交发生漂移（未命中锚点），**立即以锚点关键字进行 `grep_search`，定位真实行号并自愈调阅**，彻底解决纯行号脆弱性！
+
+---
+
+### 3.6 信息价值分级与阅后即焚分流协议 (Information Lifecycle Triage & Ephemeral Offloading)
+
+在日常工程实战中，用户与 Agent 的交互往往不仅限于纯粹的代码编写，还频繁穿插着大量**非代码开发主线的交织需求**：
+- **行政与总结诉求**：编写周报、汇总提交记录、生成版本发布 Release Notes、产出测试度量报表；
+- **知识与调研诉求**：讲解某框架底层运行机制、对比技术栈选型（如 ClickHouse vs StarRocks、Hyperf vs Go-Zero）；
+- **发散与灵感诉求**：头脑风暴临时蹦出来的想法、未来的架构重构设想、未经论证的技术探索；
+- **临时工具性诉求**：临时编写一段正则表达式、转换一个复杂 JSON 结构、解析一段异常堆栈。
+
+#### 1. 痛点本质：多维意图交叉污染主干状态机 (Cross-Intent Context Pollution)
+若将上述内容无差别地平铺在主开发会话中，会产生严重的**上下文毒化效应**：
+- 数千字的周报草稿或技术栈科普文本注入后，主会话的信噪比急剧稀释；
+- 依据 Transformer 自注意力 U 型衰减规律，核心业务状态机和代码契约被迅速推向注意力谷底，后续编写代码极易发生意图漂移（Goal Drift）；
+- 每次微小的代码交互，都在为这些已经消费完毕的历史杂项支付二次方累积（$\mathcal{O}(N^2)$）的复利计费。
+
+#### 2. 信息四级生命周期阶梯 (The 4-Tier Information Hierarchy)
+
+```mermaid
+graph TD
+    subgraph InformationTriage [信息价值流动与生命周期决策树]
+        direction TB
+        Input[用户输入多样化诉求] --> Check{诉求性质与信息价值判定}
+        
+        Check -->|一次性小工具 / 试错日志 / 临时答疑| L0["L0: 纯瞬态 / 阅后即焚 (Ephemeral)<br/>执行完即废弃，主会话不留过程废料"]
+        Check -->|技术栈对比 / 原理科普 / 方案调研| L1["L1: 支线探索 / 实体化即焚 (Materialize & Burn)<br/>落盘写入 docs/ 知识库，会话仅留 3 句结论指针"]
+        Check -->|周报汇总 / 迭代报表 / 交付物生成| L2["L2: 行政副产物 / 外置交付 (Deliverable)<br/>落盘写入 reports/，OS 自动弹窗，会话零回声"]
+        Check -->|数据模型 / 接口契约 / 状态机实现| L3["L3: 核心主干状态 (Core Invariant)<br/>强制落盘 implementation_plan.md，绝对最高信噪比"]
+    end
+```
+
+| 级别 | 典型诉求场景 | 上下文留存策略 | 物理归宿与沉淀规范 |
+| :--- | :--- | :--- | :--- |
+| **L0: 纯瞬态 / 阅后即焚 (Ephemeral)** | 临时正则、JSON 格式化、试探性调试报错、一次性 Bug 修复过程 | **阅后即焚 (Burn After Reading)**<br/>禁止展开推导历史，输出结果即闭环 | 仅保留最终原子提交，海量报错日志由 Subagent 消化或即刻遗忘 |
+| **L1: 支线探索 (Side-Quest)** | 技术栈对比、底层机制深度长篇解析、技术方案预研 | **实体化即焚 (Burn from Context after Materialization)**<br/>会话内禁止输出长篇科普 | 主动将调研长文落盘写入 `docs/research/xxx.md`，会话仅输出 3 句高密度结论与本地指针 |
+| **L2: 行政交付 (Deliverable)** | 周报编写、Release Notes、代码统计度量报表 | **外置生成与本地弹窗 (Externalize & Auto-Preview)**<br/>严格遵守 Zero Echoing | 收集会话成果直接落盘写入 `reports/weekly-xxx.md`，执行系统命令弹窗预览，会话内仅保留 1 行指针 |
+| **L3: 核心主干 (Core Invariants)** | 业务数据模型、接口契约、领域状态机、Epic 任务流 | **强一致状态机 (Persistent State)**<br/>绝对最高注意力权重 | 严格同步至 `implementation_plan.md`，作为不可动摇的单一真理源 (SSOT) |
+
+#### 3. 灵感池分流暂存机制 (Thought Staging & Backlog Pool)
+当用户在写代码间隙冒出“*我们以后可以把这个鉴权剥离成独立微服务*”或“*这里可以加个 Redis 缓存*”等非当前任务的灵感想法时：
+- **严禁**：在会话中展开深入讨论发散，这会导致当前核心任务目标偏航；
+- **标准 SOP**：Agent 立即将该想法提炼为 1~2 句话，自动追加沉淀到项目的轻量灵感池中（`${WORKSPACE_ROOT}/.agents/BACKLOG.md` 或 `docs/ideas.md`），并回复：
+  > “💡 该想法已记录至 [BACKLOG.md](file:///path/to/BACKLOG.md)，当前保持主干聚焦，继续执行 Task 2。”
+
+#### 4. 物理会话隔离决策建议 (Session-Level Sandboxing)
+当用户提出的诉求与当前项目的代码拓扑完全无交集时（例如：“*请给我讲讲 Linux epoll 底层红黑树与就绪链表的区别*”）：
+- **主动引导**：Agent 应当敏锐识别出该任务不具备代码状态机依赖，主动给出建议：
+  > “*该技术调研与当前订单重构主任务上下文无直接关联。为避免数千 Token 的理论讲解稀释核心主会话的注意力并增加后续复利成本，已为您将分析报告写入 [epoll_analysis.md](file:///path/to/epoll_analysis.md) 并调起预览；或者您可以随时开启一个新会话轻装交流该理论专题。*”
 
 ---
 
